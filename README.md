@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Supabase Realtime Pixel Painter
 
-## Getting Started
+Collaborative `64x64` pixel board with:
+- Supabase Auth (email/password)
+- Supabase Postgres backend
+- Realtime canvas updates
+- Rolling cooldown: `5` paints per `1` minute per user
 
-First, run the development server:
+## 1) Configure environment
+
+Copy `.env.example` to `.env.local` and fill in your project values:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 2) Create database schema
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the SQL in `supabase/schema.sql` using Supabase SQL Editor.
 
-## Learn More
+Then enable Realtime for `public.pixel_cells`:
+- Supabase Dashboard -> Database -> Replication
+- Add `public.pixel_cells` to `supabase_realtime` publication
 
-To learn more about Next.js, take a look at the following resources:
+## 3) Run locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000).
 
-## Deploy on Vercel
+## Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Unauthenticated users are redirected to `/login`.
+- Painting is performed via `place_pixel` RPC to enforce cooldown on the server.
+- Direct client writes to pixel tables are blocked by RLS policies.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Manual Validation Checklist
+
+1. Open the app in two browser windows and sign in with two users.
+2. Paint from window A and confirm the same pixel updates in window B immediately.
+3. Paint 5 pixels within 1 minute using one user, then attempt a 6th paint.
+4. Confirm the 6th paint is rejected with a cooldown message.
+5. Wait until cooldown expires, then confirm painting succeeds again.
