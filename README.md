@@ -35,6 +35,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## 4) Deploy edge functions (demo)
+
+This project includes two demo edge functions:
+
+- `hello-world` (public, no JWT required)
+- `user-stats` (requires logged-in user token)
+
+Deploy them with Supabase CLI:
+
+```bash
+supabase login
+supabase link --project-ref <your-project-ref>
+supabase functions deploy hello-world
+supabase functions deploy user-stats
+```
+
+Test them:
+
+- Public endpoint (works in browser directly):
+  - `https://<project-ref>.supabase.co/functions/v1/hello-world`
+- Auth-protected endpoint:
+  - click `Test user-stats` in the app footer (uses the logged-in user's auth token)
+
 ## Notes
 
 - Unauthenticated users are redirected to `/login`.

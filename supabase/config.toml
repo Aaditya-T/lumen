@@ -1,0 +1,7 @@
+project_id = "qycugbvvouawyezcjsjs"
+
+[functions.hello-world]
+verify_jwt = false
+
+[functions.user-stats]
+verify_jwt = false

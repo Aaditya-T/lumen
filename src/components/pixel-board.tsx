@@ -9,6 +9,7 @@ import {
   type PixelCell,
   type PlacePixelResult,
 } from "@/lib/constants";
+import { getPublicEnv } from "@/lib/env";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type PixelBoardProps = {
@@ -18,6 +19,17 @@ type PixelBoardProps = {
 
 type PixelEventRow = {
   created_at: string;
+};
+
+type EdgeUserStats = {
+  user_id: string;
+  email: string | null;
+  remaining_paints: number;
+  paints_used_in_window: number;
+  cooldown_window_seconds: number;
+  total_paints: number;
+  last_painted_at: string | null;
+  generated_at: string;
 };
 
 const cellKey = (x: number, y: number) => `${x}:${y}`;
@@ -59,8 +71,13 @@ const formatCooldown = (nextAvailableAt: string | null): string => {
 
 export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
   const supabase = getSupabaseBrowserClient();
+  const { supabaseUrl } = getPublicEnv();
+  const helloWorldUrl = `${supabaseUrl}/functions/v1/hello-world`;
   const [selectedColor, setSelectedColor] = useState("#ef4444");
   const [status, setStatus] = useState<string>("");
+  const [edgeStatus, setEdgeStatus] = useState<string>("");
+  const [edgeStats, setEdgeStats] = useState<EdgeUserStats | null>(null);
+  const [isCallingEdge, setIsCallingEdge] = useState(false);
   const [clockMs, setClockMs] = useState<number>(() => Date.now());
   const [recentPaintMs, setRecentPaintMs] = useState<number[]>([]);
   const [peerConnections, setPeerConnections] = useState<number>(1);
@@ -78,6 +95,7 @@ export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
 
   const refreshRateWindow = useCallback(async () => {
     const sinceIso = new Date(Date.now() - COOLDOWN_WINDOW_MS).toISOString();
+    //DATABASE SELECT QUERY EXAMPLE
     const { data } = await supabase
       .from("pixel_events")
       .select("created_at")
@@ -245,6 +263,7 @@ export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
     }
 
     setIsPainting(true);
+    //DATABASE FUNCTION CALL EXAMPLE
     const { data, error } = await supabase.rpc("place_pixel", {
       p_x: x,
       p_y: y,
@@ -276,6 +295,40 @@ export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
+  };
+
+  const handleUserStatsDemo = async () => {
+    setIsCallingEdge(true);
+    setEdgeStatus("");
+    setEdgeStats(null);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setIsCallingEdge(false);
+      setEdgeStatus("No active access token found. Sign in again and retry.");
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("user-stats", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: { demo_source: "pixel-board-ui" },
+    });
+    setIsCallingEdge(false);
+
+    if (error) {
+      setEdgeStats(null);
+      setEdgeStatus(`Edge function error: ${error.message}`);
+      return;
+    }
+
+    setEdgeStats(data as EdgeUserStats);
+    setEdgeStatus("Authenticated edge call succeeded.");
   };
 
   const windowSeconds = Math.floor(COOLDOWN_WINDOW_MS / 1000);
@@ -352,6 +405,24 @@ export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
             />
           ))}
         </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={helloWorldUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded border border-white/20 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-zinc-300 hover:border-white/40 hover:text-white"
+            >
+              Open hello-world
+            </a>
+            <button
+              type="button"
+              onClick={() => void handleUserStatsDemo()}
+              disabled={isCallingEdge}
+              className="rounded border border-emerald-400/60 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-emerald-300 hover:border-emerald-300 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isCallingEdge ? "Calling..." : "Test user-stats"}
+            </button>
+          </div>
           <div className="text-right text-[11px] uppercase tracking-[0.1em] text-zinc-400">
             <p>
               Pixels: {remainingPaints}/{MAX_PAINTS_PER_WINDOW}
@@ -373,6 +444,15 @@ export default function PixelBoard({ initialCells, user }: PixelBoardProps) {
         >
           {statusMessage} ({MAX_PAINTS_PER_WINDOW} paints / {windowSeconds}s)
         </p>
+        <p className="text-[10px] uppercase tracking-[0.08em] text-zinc-500">
+          {edgeStatus || "Demo edge call: open hello-world or click test user-stats."}
+        </p>
+        {edgeStats ? (
+          <p className="text-[10px] uppercase tracking-[0.08em] text-emerald-300">
+            Edge user-stats: {edgeStats.remaining_paints} remaining, {edgeStats.total_paints} total
+            paints.
+          </p>
+        ) : null}
       </footer>
     </main>
   );
