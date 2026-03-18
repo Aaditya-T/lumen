@@ -18,6 +18,9 @@ Required:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
+Optional (recommended for auth email links):
+- `NEXT_PUBLIC_SITE_URL` (for example `https://your-deployed-domain.com`)
+
 ## 2) Create database schema
 
 Run the SQL in `supabase/schema.sql` using Supabase SQL Editor.

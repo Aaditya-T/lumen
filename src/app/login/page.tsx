@@ -30,7 +30,19 @@ export default function LoginPage() {
     setIsLoading(true);
     setStatus("");
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    const baseUrl =
+      configuredSiteUrl && configuredSiteUrl.length > 0
+        ? configuredSiteUrl
+        : window.location.origin;
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: baseUrl,
+      },
+    });
     setIsLoading(false);
 
     if (error) {
